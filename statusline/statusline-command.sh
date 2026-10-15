@@ -109,7 +109,8 @@ sep=""
 # (GitHub's Octocat) stands in for one; unlike a Nerd Font glyph it needs no special font.
 [ -n "$repo" ] && {
   out="${out}${BOLD}${YELLOW}🐙 ${repo}${OFF}"
-  sep="$PIPE"
+  # Just a space before the branch: repo and branch read as one segment.
+  sep=" "
 }
 
 # Leaf + branch + powerlevel10k-style status, bold cyan, parenthesised:
