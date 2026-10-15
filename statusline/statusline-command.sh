@@ -115,7 +115,10 @@ sep=""
 #   ⇣N ⇡N  behind/ahead of upstream     *N  stashes
 #   ~N     conflicted                    +N  staged
 #   !N     unstaged                      ?N  untracked
-# A detached HEAD shows as @<short sha>, as in p10k. One porcelain-v2 call
+# A detached HEAD shows as @<short sha>, as in p10k. Colours are the 256-colour
+# indices from my_git_formatter in ~/.p10k.zsh, so the two read alike: branch,
+# ahead/behind and stashes green (76), staged/unstaged yellow (178), untracked
+# blue (39), conflicts red (196), the @ grey (248). One porcelain-v2 call
 # covers everything but stashes. Skips optional locks so this never contends
 # with a concurrent git operation.
 if [ -n "$cwd" ]; then
@@ -123,6 +126,10 @@ if [ -n "$cwd" ]; then
   [ -n "$gst" ] && {
     stashes=$(git -C "$cwd" --no-optional-locks rev-list --walk-reflogs --count refs/stash 2>/dev/null)
     git_seg=$(printf '%s\n' "$gst" | awk -v stashes="${stashes:-0}" '
+      BEGIN {
+        meta = "\033[38;5;248m"; clean = "\033[38;5;76m"; modified = "\033[38;5;178m"
+        untracked_c = "\033[38;5;39m"; conflicted_c = "\033[38;5;196m"
+      }
       /^# branch\.oid / { oid = substr($3, 1, 7) }
       /^# branch\.head / { head = $3 }
       /^# branch\.ab /   { ahead = substr($3, 2) + 0; behind = substr($4, 2) + 0 }
@@ -134,17 +141,17 @@ if [ -n "$cwd" ]; then
       /^u / { conflicted++ }
       /^\? / { untracked++ }
       END {
-        s = (head == "(detached)") ? "@" oid : head
-        if (behind)     s = s " ⇣" behind
-        if (ahead)      s = s (behind ? "⇡" : " ⇡") ahead
-        if (stashes)    s = s " *" stashes
-        if (conflicted) s = s " ~" conflicted
-        if (staged)     s = s " +" staged
-        if (unstaged)   s = s " !" unstaged
-        if (untracked)  s = s " ?" untracked
+        s = (head == "(detached)") ? meta "@" clean oid : clean head
+        if (behind)     s = s " " clean "⇣" behind
+        if (ahead)      s = s (behind ? "" : " ") clean "⇡" ahead
+        if (stashes)    s = s " " clean "*" stashes
+        if (conflicted) s = s " " conflicted_c "~" conflicted
+        if (staged)     s = s " " modified "+" staged
+        if (unstaged)   s = s " " modified "!" unstaged
+        if (untracked)  s = s " " untracked_c "?" untracked
         printf("%s", s)
       }')
-    out="${out}${sep}${BOLD}${CYAN}🌿 (${git_seg})${OFF}"
+    out="${out}${sep}${BOLD}${CYAN}🌿 (${OFF}${git_seg}${BOLD}${CYAN})${OFF}"
     sep="$PIPE"
   }
 fi
