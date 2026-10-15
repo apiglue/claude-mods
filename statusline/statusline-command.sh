@@ -105,14 +105,13 @@ clock() {
 out=""
 sep=""
 
-# Octopus + repo name, bold yellow. Unicode has no git emoji, so 🐙
-# (GitHub's Octocat) stands in for one; unlike a Nerd Font glyph it needs no special font.
+# Repo name, bold yellow.
 [ -n "$repo" ] && {
-  out="${out}${BOLD}${YELLOW}🐙 ${repo}${OFF}"
+  out="${out}${BOLD}${YELLOW}${repo}${OFF}"
   sep="$PIPE"
 }
 
-# Leaf + branch + powerlevel10k-style status, bold cyan, parenthesised:
+# Branch + powerlevel10k-style status, bold cyan, parenthesised:
 #   ⇣N ⇡N  behind/ahead of upstream     *N  stashes
 #   ~N     conflicted                    +N  staged
 #   !N     unstaged                      ?N  untracked
@@ -154,7 +153,7 @@ if [ -n "$cwd" ]; then
       }')
     # Just a space after the repo name, so repo and branch read as one segment.
     [ -n "$repo" ] && sep=" "
-    out="${out}${sep}${BOLD}${CYAN}🌿 (${OFF}${git_seg}${BOLD}${CYAN})${OFF}"
+    out="${out}${sep}${BOLD}${CYAN}(${OFF}${git_seg}${BOLD}${CYAN})${OFF}"
     sep="$PIPE"
   }
 fi
@@ -165,7 +164,7 @@ fi
     "$HOME"|"$HOME"/*) dir="~${cwd#"$HOME"}" ;;
     *) dir="$cwd" ;;
   esac
-  out="${out}${sep}${GREEN}📁 ${dir}${OFF}"
+  out="${out}${sep}${GREEN}${dir}${OFF}"
   sep="$PIPE"
 }
 
@@ -212,7 +211,7 @@ esac
 
 # Model, magenta, with the turn's effort in parentheses when the model takes one.
 [ -n "$model" ] && {
-  out="${out}${sep}${MAGENTA}🤖 ${model}${OFF}"
+  out="${out}${sep}${MAGENTA}${model}${OFF}"
   [ -n "$effort" ] && out="${out}${MAGENTA} (${effort})${OFF}"
   sep="$PIPE"
 }
