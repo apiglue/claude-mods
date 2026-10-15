@@ -1,6 +1,6 @@
 # claude-mods
 
-Mods for [Claude Code](https://claude.com/claude-code).
+Mods for [Claude Code](https://claude.com/claude-code), plus the status line they pair with.
 
 ## effort-router
 
@@ -33,3 +33,24 @@ claude plugin install effort-router --marketplace apiglue/claude-mods
 ```
 
 In the desktop app, where `/plugin` does not run: click + next to the prompt box, then Plugins, Add marketplace with `apiglue/claude-mods`, then Add plugin.
+
+## Status line
+
+`statusline/statusline-command.sh` is a truecolor status line that shows:
+
+- repo, branch and current folder
+- the context window as a 20-block bar, plus its percentage
+- the 5-hour (with its reset time) and 7-day plan limits, colored green → yellow → orange → red as they fill
+- the model, with the turn's effort in parentheses, e.g. `🤖 Opus 5.5 (low)`. With effort-router installed, that is the effort the mod chose for the turn rather than the session's setting.
+- the equivalent API cost, only while a Fable model is active
+
+It needs `jq`. A status line is a setting, not something a plugin can install, so clone this repo and point `statusLine` in `~/.claude/settings.json` at the script:
+
+```json
+"statusLine": {
+  "type": "command",
+  "command": "bash /path/to/claude-mods/statusline/statusline-command.sh"
+}
+```
+
+A `git pull` in the clone picks up changes, since the setting runs the file straight from it.

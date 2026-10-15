@@ -1,0 +1,191 @@
+#!/bin/sh
+# Claude Code status line: repo/branch, context bar, plan limits, model — truecolor.
+#
+# Reads the JSON payload Claude Code pipes in on stdin. Field names below were
+# taken from an actual payload on 2.1.222 (dump it again with
+# `printf '%s' "$input" > /tmp/claude-statusline.json` if a future build moves
+# things); every read falls back to empty so a missing field drops its segment
+# rather than printing an error into the status bar.
+input=$(cat)
+
+model=$(printf '%s' "$input" | jq -r '.model.display_name // empty')
+model_id=$(printf '%s' "$input" | jq -r '.model.id // empty')
+repo=$(printf '%s' "$input" | jq -r '.workspace.repo.name // empty')
+cwd=$(printf '%s' "$input" | jq -r '.cwd // .workspace.current_dir // empty')
+ctx=$(printf '%s' "$input" | jq -r '.context_window.used_percentage // empty')
+five=$(printf '%s' "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
+five_at=$(printf '%s' "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
+week=$(printf '%s' "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
+cost=$(printf '%s' "$input" | jq -r '.cost.total_cost_usd // empty')
+session=$(printf '%s' "$input" | jq -r '.session_id // empty')
+effort=$(printf '%s' "$input" | jq -r '.effort.level // empty')
+# effort-router's per-turn choice wins over the session's setting: the payload
+# carries only the setting, not what the mod sent for this turn.
+[ -n "$session" ] && [ -n "$effort" ] && [ -r "/tmp/claude-effort-router/$session" ] &&
+  effort=$(cat "/tmp/claude-effort-router/$session")
+
+# Repo name falls back to the cwd's basename so the segment still shows
+# something outside a git remote.
+[ -z "$repo" ] && [ -n "$cwd" ] && repo=$(basename "$cwd")
+
+# Fall back to the cwd basename above if repo.name was empty, but if cwd was
+# empty too there's nothing to show for it — that's fine, the segment drops.
+
+OFF='\033[0m'
+BOLD='\033[1m'
+YELLOW='\033[38;2;220;200;0m'
+CYAN='\033[38;2;0;210;210m'
+MAGENTA='\033[38;2;200;0;200m'
+GREEN='\033[38;2;0;200;80m'
+RED='\033[38;2;220;40;20m'
+ORANGE='\033[38;2;220;120;20m'
+GRAY='\033[38;2;90;90;90m'
+
+PIPE="${GRAY} │ ${OFF}"
+
+# Usage-level colour, reused for the percentage figure and the rate-limit
+# figures so a "90" reads red everywhere it appears.
+colour_for() {
+  n=${1%%.*}
+  if [ "$n" -ge 90 ] 2>/dev/null; then printf '%s' "$RED"
+  elif [ "$n" -ge 70 ] 2>/dev/null; then printf '%s' "$ORANGE"
+  elif [ "$n" -ge 20 ] 2>/dev/null; then printf '%s' "$YELLOW"
+  else printf '%s' "$GREEN"
+  fi
+}
+
+emoji_for() {
+  n=${1%%.*}
+  if [ "$n" -ge 90 ] 2>/dev/null; then printf '%s' "🚨"
+  elif [ "$n" -ge 70 ] 2>/dev/null; then printf '%s' "🔥"
+  elif [ "$n" -ge 20 ] 2>/dev/null; then printf '%s' "⚡"
+  else printf '%s' "🟢"
+  fi
+}
+
+# The API hands back full float precision ("28.999999999999996"), which is
+# noise in a status bar. Round to 2 dp, then drop trailing zeros so a clean
+# figure still prints as "29" rather than "29.00".
+fmt_pct() {
+  awk -v v="$1" 'BEGIN {
+    s = sprintf("%.2f", v);
+    sub(/\.?0+$/, "", s);
+    printf("%s", s);
+  }'
+}
+
+# 20-block bar. Each filled block is coloured by its own position along the
+# bar (not by the overall percentage), so the fill itself sweeps
+# green(0,200,80) → yellow(220,200,0) → red(220,40,20); empty blocks stay a
+# flat dark gray(60,60,60). Needs awk for the float interpolation — no bc
+# dependency.
+bar_for() {
+  awk -v pct="$1" -v blocks=20 'BEGIN {
+    filled = int(pct / 100 * blocks + 0.5);
+    for (i = 0; i < blocks; i++) {
+      if (i < filled) {
+        frac = (i + 0.5) / blocks * 100;
+        if (frac <= 50) {
+          t = frac / 50;
+          r = 0   + t * (220 - 0);
+          g = 200 + t * (200 - 200);
+          b = 80  + t * (0   - 80);
+        } else {
+          t = (frac - 50) / 50;
+          r = 220 + t * (220 - 220);
+          g = 200 + t * (40  - 200);
+          b = 0   + t * (20  - 0);
+        }
+        printf("\033[38;2;%d;%d;%dm█", r, g, b);
+      } else {
+        printf("\033[38;2;60;60;60m█");
+      }
+    }
+    printf("\033[0m");
+  }'
+}
+
+# macOS ships BSD date (-r), GNU date wants -d @. Try both, print neither if
+# the platform is a third thing.
+clock() {
+  date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M 2>/dev/null
+}
+
+out=""
+sep=""
+
+# Repo name, bold yellow.
+[ -n "$repo" ] && {
+  out="${out}${BOLD}${YELLOW}${repo}${OFF}"
+  sep="$PIPE"
+}
+
+# Leaf + branch, bold cyan, parenthesised. Skips optional locks so this never
+# contends with a concurrent git operation.
+if [ -n "$cwd" ]; then
+  branch=$(git -C "$cwd" --no-optional-locks rev-parse --abbrev-ref HEAD 2>/dev/null)
+  [ -n "$branch" ] && {
+    out="${out}${sep}${BOLD}${CYAN}🌿 (${branch})${OFF}"
+    sep="$PIPE"
+  }
+fi
+
+# Current folder, with $HOME shortened to ~ so the full path stays readable.
+[ -n "$cwd" ] && {
+  case "$cwd" in
+    "$HOME"|"$HOME"/*) dir="~${cwd#"$HOME"}" ;;
+    *) dir="$cwd" ;;
+  esac
+  out="${out}${sep}${GREEN}📁 ${dir}${OFF}"
+  sep="$PIPE"
+}
+
+# Context bar + dynamic emoji + coloured percentage.
+[ -n "$ctx" ] && {
+  out="${out}${sep}$(bar_for "$ctx") $(emoji_for "$ctx") $(colour_for "$ctx")$(fmt_pct "$ctx")%${OFF}"
+  sep="$PIPE"
+}
+
+# The number that decides whether to keep going or wrap up, so it carries its
+# reset time — "95%" alone does not say whether relief is in two minutes or
+# two hours.
+[ -n "$five" ] && {
+  at=""
+  [ -n "$five_at" ] && at=" ↻$(clock "$five_at")"
+  out="${out}${sep}5h: $(colour_for "$five")$(fmt_pct "$five")%${at}${OFF}"
+  sep="$PIPE"
+}
+
+[ -n "$week" ] && {
+  out="${out}${sep}7d: $(colour_for "$week")$(fmt_pct "$week")%${OFF}"
+  sep="$PIPE"
+}
+
+# Fable only, by request.
+#
+# On a Pro subscription the dollar figure is not a bill — it is the equivalent
+# API cost of the tokens, and the two percentages above are what actually
+# constrain a session. Shown here because it is the number worth watching
+# while Fable is the active model, and hidden otherwise so it does not read
+# as a charge during ordinary work.
+#
+# Matched on the id rather than the display name: ids are stable, display
+# names are marketing copy. Substring rather than equality, so a dated or
+# versioned id (claude-fable-5, claude-fable-5-20261101) still matches.
+case "$model_id" in
+  *fable*)
+    [ -n "$cost" ] && {
+      out="${out}${sep}${YELLOW}≈\$$(printf '%.2f' "$cost")${OFF}"
+      sep="$PIPE"
+    }
+    ;;
+esac
+
+# Model, magenta, with the turn's effort in parentheses when the model takes one.
+[ -n "$model" ] && {
+  out="${out}${sep}${MAGENTA}🤖 ${model}${OFF}"
+  [ -n "$effort" ] && out="${out}${MAGENTA} (${effort})${OFF}"
+  sep="$PIPE"
+}
+
+printf "%b" "$out"
