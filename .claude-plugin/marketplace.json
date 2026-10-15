@@ -1,0 +1,14 @@
+{
+  "name": "claude-mods",
+  "owner": {
+    "name": "apiglue"
+  },
+  "plugins": [
+    {
+      "name": "effort-router",
+      "source": "./mods/effort-router",
+      "description": "Sets the main loop's reasoning effort per turn from how complex the prompt looks; /route pins or releases it"
+    }
+  ],
+  "description": "Mods for Claude Code"
+}

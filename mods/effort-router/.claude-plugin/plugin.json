@@ -1,0 +1,9 @@
+{
+  "name": "effort-router",
+  "version": "0.1.0",
+  "description": "Sets the main loop's reasoning effort per turn from how complex the prompt looks; /route pins or releases it",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "apiglue"
+  }
+}
