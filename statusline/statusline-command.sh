@@ -111,12 +111,40 @@ sep=""
   sep="$PIPE"
 }
 
-# Leaf + branch, bold cyan, parenthesised. Skips optional locks so this never
-# contends with a concurrent git operation.
+# Leaf + branch + powerlevel10k-style status, bold cyan, parenthesised:
+#   ⇣N ⇡N  behind/ahead of upstream     *N  stashes
+#   ~N     conflicted                    +N  staged
+#   !N     unstaged                      ?N  untracked
+# A detached HEAD shows as @<short sha>, as in p10k. One porcelain-v2 call
+# covers everything but stashes. Skips optional locks so this never contends
+# with a concurrent git operation.
 if [ -n "$cwd" ]; then
-  branch=$(git -C "$cwd" --no-optional-locks rev-parse --abbrev-ref HEAD 2>/dev/null)
-  [ -n "$branch" ] && {
-    out="${out}${sep}${BOLD}${CYAN}🌿 (${branch})${OFF}"
+  gst=$(git -C "$cwd" --no-optional-locks status --porcelain=v2 --branch 2>/dev/null)
+  [ -n "$gst" ] && {
+    stashes=$(git -C "$cwd" --no-optional-locks rev-list --walk-reflogs --count refs/stash 2>/dev/null)
+    git_seg=$(printf '%s\n' "$gst" | awk -v stashes="${stashes:-0}" '
+      /^# branch\.oid / { oid = substr($3, 1, 7) }
+      /^# branch\.head / { head = $3 }
+      /^# branch\.ab /   { ahead = substr($3, 2) + 0; behind = substr($4, 2) + 0 }
+      /^[12] / {
+        x = substr($2, 1, 1); y = substr($2, 2, 1)
+        if (x != ".") staged++
+        if (y != ".") unstaged++
+      }
+      /^u / { conflicted++ }
+      /^\? / { untracked++ }
+      END {
+        s = (head == "(detached)") ? "@" oid : head
+        if (behind)     s = s " ⇣" behind
+        if (ahead)      s = s (behind ? "⇡" : " ⇡") ahead
+        if (stashes)    s = s " *" stashes
+        if (conflicted) s = s " ~" conflicted
+        if (staged)     s = s " +" staged
+        if (unstaged)   s = s " !" unstaged
+        if (untracked)  s = s " ?" untracked
+        printf("%s", s)
+      }')
+    out="${out}${sep}${BOLD}${CYAN}🌿 (${git_seg})${OFF}"
     sep="$PIPE"
   }
 fi
