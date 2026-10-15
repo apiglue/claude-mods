@@ -54,15 +54,6 @@ colour_for() {
   fi
 }
 
-emoji_for() {
-  n=${1%%.*}
-  if [ "$n" -ge 90 ] 2>/dev/null; then printf '%s' "🚨"
-  elif [ "$n" -ge 70 ] 2>/dev/null; then printf '%s' "🔥"
-  elif [ "$n" -ge 20 ] 2>/dev/null; then printf '%s' "⚡"
-  else printf '%s' "🟢"
-  fi
-}
-
 # The API hands back full float precision ("28.999999999999996"), which is
 # noise in a status bar. Round to 2 dp, then drop trailing zeros so a clean
 # figure still prints as "29" rather than "29.00".
@@ -140,9 +131,9 @@ fi
   sep="$PIPE"
 }
 
-# Context bar + dynamic emoji + coloured percentage.
+# Context bar + coloured percentage.
 [ -n "$ctx" ] && {
-  out="${out}${sep}$(bar_for "$ctx") $(emoji_for "$ctx") $(colour_for "$ctx")$(fmt_pct "$ctx")%${OFF}"
+  out="${out}${sep}$(bar_for "$ctx") $(colour_for "$ctx")$(fmt_pct "$ctx")%${OFF}"
   sep="$PIPE"
 }
 
