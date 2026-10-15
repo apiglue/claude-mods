@@ -105,9 +105,10 @@ clock() {
 out=""
 sep=""
 
-# Repo name, bold yellow.
+# Git logo + repo name, bold yellow. Unicode has no git emoji, so the logo is
+# Nerd Font's nf-dev-git (U+E702) — the font ~/.p10k.zsh already relies on.
 [ -n "$repo" ] && {
-  out="${out}${BOLD}${YELLOW}${repo}${OFF}"
+  out="${out}${BOLD}${YELLOW} ${repo}${OFF}"
   sep="$PIPE"
 }
 
