@@ -109,8 +109,7 @@ sep=""
 # (GitHub's Octocat) stands in for one; unlike a Nerd Font glyph it needs no special font.
 [ -n "$repo" ] && {
   out="${out}${BOLD}${YELLOW}🐙 ${repo}${OFF}"
-  # Just a space before the branch: repo and branch read as one segment.
-  sep=" "
+  sep="$PIPE"
 }
 
 # Leaf + branch + powerlevel10k-style status, bold cyan, parenthesised:
@@ -153,6 +152,8 @@ if [ -n "$cwd" ]; then
         if (untracked)  s = s " " untracked_c "?" untracked
         printf("%s", s)
       }')
+    # Just a space after the repo name, so repo and branch read as one segment.
+    [ -n "$repo" ] && sep=" "
     out="${out}${sep}${BOLD}${CYAN}🌿 (${OFF}${git_seg}${BOLD}${CYAN})${OFF}"
     sep="$PIPE"
   }
