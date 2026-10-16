@@ -176,10 +176,14 @@ fi
   sep="$PIPE"
 }
 
+# Second line: context bar + coloured percentage, then the rate limits.
+out2=""
+sep2=""
+
 # Context bar + coloured percentage.
 [ -n "$ctx" ] && {
-  out="${out}${sep}$(bar_for "$ctx") $(colour_for "$ctx")$(fmt_pct "$ctx")%${OFF}"
-  sep="$DASH"
+  out2="${out2}${sep2}ctx: $(bar_for "$ctx")$(colour_for "$ctx")$(fmt_pct "$ctx")%${OFF}"
+  sep2="$DASH"
 }
 
 # The number that decides whether to keep going or wrap up, so it carries its
@@ -188,15 +192,15 @@ fi
 [ -n "$five" ] && {
   at=""
   [ -n "$five_at" ] && at=" ↻$(countdown "$five_at")"
-  out="${out}${sep}5h: $(colour_for "$five")$(fmt_pct "$five")%${at}${OFF}"
-  sep="$DASH"
+  out2="${out2}${sep2}5h: $(colour_for "$five")$(fmt_pct "$five")%${at}${OFF}"
+  sep2="$DASH"
 }
 
 [ -n "$week" ] && {
   left=""
   [ -n "$week_at" ] && left=" ↻$(countdown "$week_at")"
-  out="${out}${sep}7d: $(colour_for "$week")$(fmt_pct "$week")%${left}${OFF}"
-  sep="$PIPE"
+  out2="${out2}${sep2}7d: $(colour_for "$week")$(fmt_pct "$week")%${left}${OFF}"
+  sep2="$DASH"
 }
 
 # Fable only, by request.
@@ -226,4 +230,5 @@ esac
   sep="$PIPE"
 }
 
+[ -n "$out2" ] && out="${out}\n${out2}"
 printf "%b" "$out"
