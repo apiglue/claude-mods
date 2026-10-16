@@ -16,6 +16,7 @@ ctx=$(printf '%s' "$input" | jq -r '.context_window.used_percentage // empty')
 five=$(printf '%s' "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
 five_at=$(printf '%s' "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
 week=$(printf '%s' "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
+week_at=$(printf '%s' "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
 cost=$(printf '%s' "$input" | jq -r '.cost.total_cost_usd // empty')
 session=$(printf '%s' "$input" | jq -r '.session_id // empty')
 effort=$(printf '%s' "$input" | jq -r '.effort.level // empty')
@@ -39,9 +40,11 @@ MAGENTA='\033[38;2;200;0;200m'
 GREEN='\033[38;2;0;200;80m'
 RED='\033[38;2;220;40;20m'
 ORANGE='\033[38;2;220;120;20m'
+BLUE='\033[38;2;0;178;255m'
 GRAY='\033[38;2;90;90;90m'
 
 PIPE="${GRAY} │ ${OFF}"
+DASH="${GRAY} - ${OFF}"
 
 # Usage-level colour, reused for the percentage figure and the rate-limit
 # figures so a "90" reads red everywhere it appears.
@@ -96,10 +99,15 @@ bar_for() {
   }'
 }
 
-# macOS ships BSD date (-r), GNU date wants -d @. Try both, print neither if
-# the platform is a third thing.
-clock() {
-  date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M 2>/dev/null
+# Time remaining until an epoch timestamp, e.g. "2d4h", "5h12m", "9m".
+countdown() {
+  s=$(( $1 - $(date +%s) ))
+  [ "$s" -lt 0 ] && s=0
+  d=$(( s / 86400 )); h=$(( s % 86400 / 3600 )); m=$(( s % 3600 / 60 ))
+  if [ "$d" -gt 0 ]; then printf '%dd%dh' "$d" "$h"
+  elif [ "$h" -gt 0 ]; then printf '%dh%dm' "$h" "$m"
+  else printf '%dm' "$m"
+  fi
 }
 
 out=""
@@ -164,14 +172,14 @@ fi
     "$HOME"|"$HOME"/*) dir="~${cwd#"$HOME"}" ;;
     *) dir="$cwd" ;;
   esac
-  out="${out}${sep}${GREEN}${dir}${OFF}"
+  out="${out}${sep}${BLUE}${dir}${OFF}"
   sep="$PIPE"
 }
 
 # Context bar + coloured percentage.
 [ -n "$ctx" ] && {
   out="${out}${sep}$(bar_for "$ctx") $(colour_for "$ctx")$(fmt_pct "$ctx")%${OFF}"
-  sep="$PIPE"
+  sep="$DASH"
 }
 
 # The number that decides whether to keep going or wrap up, so it carries its
@@ -179,13 +187,15 @@ fi
 # two hours.
 [ -n "$five" ] && {
   at=""
-  [ -n "$five_at" ] && at=" ↻$(clock "$five_at")"
+  [ -n "$five_at" ] && at=" ↻$(countdown "$five_at")"
   out="${out}${sep}5h: $(colour_for "$five")$(fmt_pct "$five")%${at}${OFF}"
-  sep="$PIPE"
+  sep="$DASH"
 }
 
 [ -n "$week" ] && {
-  out="${out}${sep}7d: $(colour_for "$week")$(fmt_pct "$week")%${OFF}"
+  left=""
+  [ -n "$week_at" ] && left=" ↻$(countdown "$week_at")"
+  out="${out}${sep}7d: $(colour_for "$week")$(fmt_pct "$week")%${left}${OFF}"
   sep="$PIPE"
 }
 
