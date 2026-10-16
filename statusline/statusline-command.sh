@@ -163,14 +163,14 @@ fi
 # two hours.
 [ -n "$five" ] && {
   at=""
-  [ -n "$five_at" ] && at=" ↻$(countdown "$five_at")"
+  [ -n "$five_at" ] && at=" (↻T-$(countdown "$five_at"))"
   out="${out}${sep}5h: $(colour_for "$five")$(fmt_pct "$five")%${at}${OFF}"
   sep="$DASH"
 }
 
 [ -n "$week" ] && {
   left=""
-  [ -n "$week_at" ] && left=" ↻$(countdown "$week_at")"
+  [ -n "$week_at" ] && left=" (↻T-$(countdown "$week_at"))"
   out="${out}${sep}7d: $(colour_for "$week")$(fmt_pct "$week")%${left}${OFF}"
   sep="$PIPE"
 }
