@@ -68,37 +68,6 @@ fmt_pct() {
   }'
 }
 
-# 20-block bar. Each filled block is coloured by its own position along the
-# bar (not by the overall percentage), so the fill itself sweeps
-# green(0,200,80) → yellow(220,200,0) → red(220,40,20); empty blocks stay a
-# flat dark gray(60,60,60). Needs awk for the float interpolation — no bc
-# dependency.
-bar_for() {
-  awk -v pct="$1" -v blocks=20 'BEGIN {
-    filled = int(pct / 100 * blocks + 0.5);
-    for (i = 0; i < blocks; i++) {
-      if (i < filled) {
-        frac = (i + 0.5) / blocks * 100;
-        if (frac <= 50) {
-          t = frac / 50;
-          r = 0   + t * (220 - 0);
-          g = 200 + t * (200 - 200);
-          b = 80  + t * (0   - 80);
-        } else {
-          t = (frac - 50) / 50;
-          r = 220 + t * (220 - 220);
-          g = 200 + t * (40  - 200);
-          b = 0   + t * (20  - 0);
-        }
-        printf("\033[38;2;%d;%d;%dm█", r, g, b);
-      } else {
-        printf("\033[38;2;60;60;60m█");
-      }
-    }
-    printf("\033[0m");
-  }'
-}
-
 # Time remaining until an epoch timestamp, e.g. "2d4h", "5h12m", "9m".
 countdown() {
   s=$(( $1 - $(date +%s) ))
@@ -176,14 +145,17 @@ fi
   sep="$PIPE"
 }
 
-# Second line: context bar + coloured percentage, then the rate limits.
-out2=""
-sep2=""
+# Model, magenta, with the turn's effort in parentheses when the model takes one.
+[ -n "$model" ] && {
+  out="${out}${sep}${MAGENTA}${model}${OFF}"
+  [ -n "$effort" ] && out="${out}${MAGENTA} (${effort})${OFF}"
+  sep="$PIPE"
+}
 
-# Context bar + coloured percentage.
+# Context usage, coloured by level.
 [ -n "$ctx" ] && {
-  out2="${out2}${sep2}ctx: $(bar_for "$ctx")$(colour_for "$ctx")$(fmt_pct "$ctx")%${OFF}"
-  sep2="$DASH"
+  out="${out}${sep}ctx: $(colour_for "$ctx")$(fmt_pct "$ctx")%${OFF}"
+  sep="$DASH"
 }
 
 # The number that decides whether to keep going or wrap up, so it carries its
@@ -192,15 +164,15 @@ sep2=""
 [ -n "$five" ] && {
   at=""
   [ -n "$five_at" ] && at=" ↻$(countdown "$five_at")"
-  out2="${out2}${sep2}5h: $(colour_for "$five")$(fmt_pct "$five")%${at}${OFF}"
-  sep2="$DASH"
+  out="${out}${sep}5h: $(colour_for "$five")$(fmt_pct "$five")%${at}${OFF}"
+  sep="$DASH"
 }
 
 [ -n "$week" ] && {
   left=""
   [ -n "$week_at" ] && left=" ↻$(countdown "$week_at")"
-  out2="${out2}${sep2}7d: $(colour_for "$week")$(fmt_pct "$week")%${left}${OFF}"
-  sep2="$DASH"
+  out="${out}${sep}7d: $(colour_for "$week")$(fmt_pct "$week")%${left}${OFF}"
+  sep="$PIPE"
 }
 
 # Fable only, by request.
@@ -223,12 +195,4 @@ case "$model_id" in
     ;;
 esac
 
-# Model, magenta, with the turn's effort in parentheses when the model takes one.
-[ -n "$model" ] && {
-  out="${out}${sep}${MAGENTA}${model}${OFF}"
-  [ -n "$effort" ] && out="${out}${MAGENTA} (${effort})${OFF}"
-  sep="$PIPE"
-}
-
-[ -n "$out2" ] && out="${out}\n${out2}"
 printf "%b" "$out"
